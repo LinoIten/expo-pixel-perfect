@@ -1,0 +1,17 @@
+{
+  "platforms": [
+    "apple",
+    "android",
+    "web"
+  ],
+  "apple": {
+    "modules": [
+      "ExpoPixelPerfectModule"
+    ]
+  },
+  "android": {
+    "modules": [
+      "expo.modules.pixelperfect.ExpoPixelPerfectModule"
+    ]
+  }
+}
