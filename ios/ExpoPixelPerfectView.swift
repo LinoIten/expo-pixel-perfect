@@ -32,10 +32,8 @@ class ExpoPixelPerfectView: ExpoView {
     }
     
     func loadImageFromPath(_ path: String) {
-        NSLog("Loading image from: \(path)")
         let cleanPath = path.replacingOccurrences(of: "file://", with: "")
         if let image = UIImage(contentsOfFile: cleanPath) {
-            NSLog("Image loaded, size: \(image.size)")
             originalImage = image
             scaleImage(image)
         } else {
@@ -44,8 +42,6 @@ class ExpoPixelPerfectView: ExpoView {
     }
     
     private func scaleImage(_ image: UIImage) {
-        NSLog("Scaling image by factor: \(scale)")
-        
         let targetSize = CGSize(
             width: image.size.width * CGFloat(scale),
             height: image.size.height * CGFloat(scale)
@@ -63,7 +59,6 @@ class ExpoPixelPerfectView: ExpoView {
             image.draw(in: CGRect(origin: .zero, size: targetSize))
             
             if let scaledImage = UIGraphicsGetImageFromCurrentImageContext() {
-                NSLog("Successfully scaled image to: \(targetSize)")
                 imageView.image = scaledImage
             } else {
                 NSLog("Failed to create scaled image")

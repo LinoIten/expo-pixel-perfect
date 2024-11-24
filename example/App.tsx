@@ -5,8 +5,9 @@ import { ExpoPixelPerfectView } from 'expo-pixel-perfect';
 export default function App() {
     return (
         <View style={styles.container}>
-            <Image source={require('./assets/chain.png')}
-            style={{ width: 192, height: 192 }}
+            <Image 
+                source={require('./assets/chain.png')}
+                style={{ width: 192, height: 192 }}
             />
             <ExpoPixelPerfectView
                 source={require('./assets/chain.png')}

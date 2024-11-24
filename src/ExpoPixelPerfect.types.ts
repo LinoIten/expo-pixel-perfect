@@ -13,9 +13,12 @@ export type ChangeEventPayload = {
 };
 
 export type ExpoPixelPerfectViewProps = {
-    source: string;
+    source: number | string | {
+        uri: string;
+        width: number;
+        height: number;
+    };
     scale: number;
     onRender?: (event: { nativeEvent: OnRenderEventPayload }) => void;
     style?: StyleProp<ViewStyle>;
-    
 };
