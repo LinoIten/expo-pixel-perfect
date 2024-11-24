@@ -1,19 +1,21 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 
-export type OnLoadEventPayload = {
-  url: string;
+export type OnRenderEventPayload = {
+    rendered: boolean;
 };
 
 export type ExpoPixelPerfectModuleEvents = {
-  onChange: (params: ChangeEventPayload) => void;
+    onChange: (params: ChangeEventPayload) => void;
 };
 
 export type ChangeEventPayload = {
-  value: string;
+  rendered: boolean;
 };
 
 export type ExpoPixelPerfectViewProps = {
-  url: string;
-  onLoad: (event: { nativeEvent: OnLoadEventPayload }) => void;
-  style?: StyleProp<ViewStyle>;
+    source: string;
+    scale: number;
+    onRender?: (event: { nativeEvent: OnRenderEventPayload }) => void;
+    style?: StyleProp<ViewStyle>;
+    
 };

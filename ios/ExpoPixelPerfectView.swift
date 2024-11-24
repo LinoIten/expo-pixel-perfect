@@ -1,38 +1,73 @@
+// ios/ExpoPixelPerfectView.swift
 import ExpoModulesCore
-import WebKit
+import UIKit
 
-// This view will be used as a native component. Make sure to inherit from `ExpoView`
-// to apply the proper styling (e.g. border radius and shadows).
 class ExpoPixelPerfectView: ExpoView {
-  let webView = WKWebView()
-  let onLoad = EventDispatcher()
-  var delegate: WebViewDelegate?
-
-  required init(appContext: AppContext? = nil) {
-    super.init(appContext: appContext)
-    clipsToBounds = true
-    delegate = WebViewDelegate { url in
-      self.onLoad(["url": url])
+    private var imageView: UIImageView
+    private var originalImage: UIImage?
+    
+    var scale: Int = 1 {
+        didSet {
+            NSLog("Scale changed to: \(scale)")
+            if let image = originalImage {
+                scaleImage(image)
+            }
+        }
     }
-    webView.navigationDelegate = delegate
-    addSubview(webView)
-  }
-
-  override func layoutSubviews() {
-    webView.frame = bounds
-  }
-}
-
-class WebViewDelegate: NSObject, WKNavigationDelegate {
-  let onUrlChange: (String) -> Void
-
-  init(onUrlChange: @escaping (String) -> Void) {
-    self.onUrlChange = onUrlChange
-  }
-
-  func webView(_ webView: WKWebView, didFinish navigation: WKNavigation) {
-    if let url = webView.url {
-      onUrlChange(url.absoluteString)
+    
+    required init(appContext: AppContext? = nil) {
+        imageView = UIImageView()
+        super.init(appContext: appContext)
+        addSubview(imageView)
+        
+        // Make sure image view doesn't do any of its own scaling
+        imageView.contentMode = .scaleToFill
+        imageView.layer.magnificationFilter = .nearest
+        imageView.layer.minificationFilter = .nearest
     }
-  }
+    
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        imageView.frame = bounds
+    }
+    
+    func loadImageFromPath(_ path: String) {
+        NSLog("Loading image from: \(path)")
+        let cleanPath = path.replacingOccurrences(of: "file://", with: "")
+        if let image = UIImage(contentsOfFile: cleanPath) {
+            NSLog("Image loaded, size: \(image.size)")
+            originalImage = image
+            scaleImage(image)
+        } else {
+            NSLog("Failed to load image")
+        }
+    }
+    
+    private func scaleImage(_ image: UIImage) {
+        NSLog("Scaling image by factor: \(scale)")
+        
+        let targetSize = CGSize(
+            width: image.size.width * CGFloat(scale),
+            height: image.size.height * CGFloat(scale)
+        )
+        
+        UIGraphicsBeginImageContextWithOptions(targetSize, false, 1.0)
+        defer { UIGraphicsEndImageContext() }
+        
+        if let context = UIGraphicsGetCurrentContext() {
+            // Force nearest neighbor interpolation at all levels
+            context.interpolationQuality = .none
+            context.setShouldAntialias(false)
+            context.setAllowsAntialiasing(false)
+            
+            image.draw(in: CGRect(origin: .zero, size: targetSize))
+            
+            if let scaledImage = UIGraphicsGetImageFromCurrentImageContext() {
+                NSLog("Successfully scaled image to: \(targetSize)")
+                imageView.image = scaledImage
+            } else {
+                NSLog("Failed to create scaled image")
+            }
+        }
+    }
 }
