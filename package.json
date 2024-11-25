@@ -1,6 +1,6 @@
 {
   "name": "expo-pixel-perfect",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Nearest-Neighbor scaling for React Native and Expo",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -22,7 +22,10 @@
     "image-scaling",
     "nearest-neighbor"
   ],
-  "repository": "https://github.com/LinoIten/expo-pixel-perfect",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LinoIten/expo-pixel-perfect.git"
+  },
   "bugs": {
     "url": "https://github.com/LinoIten/expo-pixel-perfect/issues"
   },
