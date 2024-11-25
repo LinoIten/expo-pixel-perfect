@@ -7,9 +7,9 @@ Perfect pixel-art scaling for your Expo apps. No blur, no artifacts - just crisp
 ## ✨ Features
 
 - Crisp nearest-neighbor scaling (no blurry pixels!)
+- Works with local and remote images
 - Native performance
 - Zero configuration
-- Uses expo-assets
 
 ## 📦 Installation
 
@@ -20,11 +20,11 @@ npx expo install expo-pixel-perfect
 ## 🚀 Usage
 
 ```tsx
-import { ExpoPixelPerfectView } from 'expo-pixel-perfect';
+import { PixelImage } from 'expo-pixel-perfect';
 
 export default function Game() {
   return (
-    <ExpoPixelPerfectView
+    <PixelImage
         source={require('./assets/chain.png')}
         scale={4}
     />
@@ -43,10 +43,6 @@ export default function Game() {
 - Start with small source images (8x8, 16x16, 32x32)
 - Use PNG format for transparency support
 - Match style width/height to your scaled dimensions
-
-## 📝 License
-
-MIT
 
 ---
 Made for ⚔️ [Pixel Odyssey](pixel-odyssey.app) by Lino Iten

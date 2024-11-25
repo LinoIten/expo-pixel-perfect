@@ -12,3 +12,10 @@ __tests__
 /android/src/test/
 /android/build/
 /example/
+
+.git/
+node_modules/
+src/
+tsconfig.json
+babel.config.js
+.gitignore

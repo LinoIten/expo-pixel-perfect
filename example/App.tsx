@@ -1,6 +1,6 @@
 
 import { Image, StyleSheet, View } from 'react-native';
-import { ExpoPixelPerfectView } from 'expo-pixel-perfect';
+import { PixelImage } from 'expo-pixel-perfect';
 
 export default function App() {
     return (
@@ -9,7 +9,7 @@ export default function App() {
                 source={require('./assets/chain.png')}
                 style={{ width: 192, height: 192 }}
             />
-            <ExpoPixelPerfectView
+            <PixelImage
                 source={require('./assets/chain.png')}
                 scale={12}
             />
