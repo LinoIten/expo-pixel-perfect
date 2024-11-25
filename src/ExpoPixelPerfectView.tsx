@@ -17,15 +17,19 @@ const NativeView: React.ComponentType<{
 }> = requireNativeView('ExpoPixelPerfect');
 
 export default function ExpoPixelPerfectView(props: ExpoPixelPerfectViewProps) {
-  const [localUri, setLocalUri] = React.useState<string | null>(null);
+    const [img, setImg] = React.useState<{ localUri: string | null, width: number }>(
+        { localUri: null, width: 16 }
+    );
 
   React.useEffect(() => {
     async function loadAsset() {
       try {
         const asset = Asset.fromModule(props.source);
         await asset.downloadAsync();
+
+
         if (asset.localUri) {
-          setLocalUri(asset.localUri);
+            setImg({ localUri: asset.localUri, width: asset.width ?? 16 });
         }
       } catch (error) {
         console.error('Failed to load asset:', error);
@@ -35,16 +39,15 @@ export default function ExpoPixelPerfectView(props: ExpoPixelPerfectViewProps) {
     loadAsset();
   }, [props.source]);
 
-  if (!localUri) {
+  if (!img.localUri) {
     return null;
   }
 
   const scale = props.scale || 1;
   
-  // If original image is 16x16 and scale is 4, style should be 64x64
   const imageSize = {
-    width: 16 * scale,  // Assuming original is 16x16
-    height: 16 * scale
+    width: img.width * scale,  
+    height: img.width * scale
   };
 
   const combinedStyle = StyleSheet.compose(
@@ -54,7 +57,7 @@ export default function ExpoPixelPerfectView(props: ExpoPixelPerfectViewProps) {
 
   return (
     <NativeView
-      path={localUri}
+      path={img.localUri}
       scale={scale}
       style={combinedStyle}
     />
