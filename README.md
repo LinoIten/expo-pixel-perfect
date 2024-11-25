@@ -1,6 +1,7 @@
 # 🔍 expo-pixel-perfect
 
-Perfect pixel-art scaling for your Expo apps. No blur, no artifacts - just crisp, clean pixels.
+Perfect pixel-art scaling for your Expo apps. No blur, no artifacts - just crisp, clean pixels. 
+
 
 <image src="screenshot.png" alt="Demo showing 16x16 pixel art scaled up with and without expo-pixel-perfect" width="200">
 
@@ -10,6 +11,7 @@ Perfect pixel-art scaling for your Expo apps. No blur, no artifacts - just crisp
 - Works with local and remote images
 - Native performance
 - Zero configuration
+- Saves bundle size, since otherwise you have to store the image in higher res
 
 ## 🛠️ Supported Platforms
 

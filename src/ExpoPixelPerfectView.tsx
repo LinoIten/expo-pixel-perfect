@@ -24,12 +24,6 @@ export default function ExpoPixelPerfectView(props: ExpoPixelPerfectViewProps) {
       try {
         const asset = Asset.fromModule(props.source);
         await asset.downloadAsync();
-        console.log('Asset loaded:', {
-          localUri: asset.localUri,
-          name: asset.name,
-          type: asset.type,
-          dimensions: `${asset.width}x${asset.height}`
-        });
         if (asset.localUri) {
           setLocalUri(asset.localUri);
         }
@@ -57,12 +51,6 @@ export default function ExpoPixelPerfectView(props: ExpoPixelPerfectViewProps) {
     imageSize,
     props.style
   );
-
-  console.log('Rendering with:', {
-    scale,
-    style: combinedStyle,
-    localUri
-  });
 
   return (
     <NativeView
