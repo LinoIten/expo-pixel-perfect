@@ -1,6 +1,6 @@
 {
   "name": "expo-pixel-perfect",
-  "version": "1.0.6",
+  "version": "1.0.12",
   "description": "Nearest-Neighbor scaling for React Native and Expo",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -34,9 +34,9 @@
   "homepage": "https://github.com/LinoIten/expo-pixel-perfect#readme",
   "devDependencies": {
     "@types/react": "~18.3.12",
-    "expo": "~52.0.0",
+    "expo": "~52.0.42",
     "expo-module-scripts": "^4.0.2",
-    "react-native": "0.76.0"
+    "react-native": "0.76.9"
   },
   "peerDependencies": {
     "expo": "*",
@@ -45,6 +45,6 @@
     "expo-asset": "^11.0.1"
   },
   "dependencies": {
-    "expo-asset": "^11.0.1"
+    "expo-asset": "~11.0.5"
   }
 }

@@ -4,15 +4,15 @@ import { Asset } from 'expo-asset';
 import { 
     StyleProp, 
     StyleSheet, 
-    ViewStyle, 
-    ActivityIndicator,
+    ViewStyle,
     View 
 } from 'react-native';
 
-type Scale = 
-    | number 
-    | { targetWidth: number }
-    | { targetHeight: number };
+type Scale = {
+    scale?: number;
+    targetWidth?: number;
+    targetHeight?: number;
+}
 
 type Source = {
     uri: string;
@@ -26,10 +26,7 @@ type ExpoPixelPerfectViewProps = {
     onLoad?: () => void;
     fallback?: React.ReactNode;
     loadingComponent?: React.ReactNode;
-    defaultSize?: { width: number; height: number };
 }
-
-const DEFAULT_SIZE = { width: 16, height: 16 };
 
 const NativeView: React.ComponentType<{
     path: string;
@@ -41,13 +38,21 @@ const calculateScale = (
     scale: Scale | undefined,
     dimensions: { width: number; height: number }
 ): number => {
-    if (typeof scale === 'number') return scale;
     if (!scale) return 1;
+    if (scale.scale) return scale.scale;
     
-    if ('targetWidth' in scale) {
+    if (scale.targetHeight) {
+        if (scale.targetWidth) {
+            return Math.min(
+                scale.targetWidth / dimensions.width,
+                scale.targetHeight / dimensions.height
+            );
+        }
+        return scale.targetHeight / dimensions.height;
+    } else if (scale.targetWidth) {
         return scale.targetWidth / dimensions.width;
     }
-    return scale.targetHeight / dimensions.height;
+    return 1;
 };
 
 export default function ExpoPixelPerfectView({ 
@@ -57,20 +62,19 @@ export default function ExpoPixelPerfectView({
     onError,
     onLoad,
     fallback,
-    loadingComponent = <ActivityIndicator />,
-    defaultSize = DEFAULT_SIZE
+    loadingComponent
 }: ExpoPixelPerfectViewProps) {
     const [state, setState] = React.useState<{
         status: 'loading' | 'loaded' | 'error';
         localUri: string | null;
-        width: number;
-        height: number;
+        width: number | null;
+        height: number | null;
         error?: Error;
     }>({
         status: 'loading',
         localUri: null,
-        width: defaultSize.width,
-        height: defaultSize.height
+        width: null,
+        height: null
     });
 
     React.useEffect(() => {
@@ -80,7 +84,11 @@ export default function ExpoPixelPerfectView({
             try {
                 let asset: Asset;
                 if (typeof source === 'number') {
-                    asset = await Asset.fromModule(source).downloadAsync();
+                    if (Asset.fromModule(source).localUri) {
+                        asset = Asset.fromModule(source);
+                    } else {
+                        asset = await Asset.fromModule(source).downloadAsync();
+                    }
                 } else {
                     asset = await Asset.fromURI(source.uri).downloadAsync();
                 }
@@ -90,8 +98,8 @@ export default function ExpoPixelPerfectView({
                 setState({
                     status: 'loaded',
                     localUri: asset.localUri,
-                    width: asset.width ?? defaultSize.width,
-                    height: asset.height ?? defaultSize.height
+                    width: asset.width,
+                    height: asset.height,
                 });
                 
                 onLoad?.();
@@ -115,12 +123,12 @@ export default function ExpoPixelPerfectView({
         return () => {
             mounted = false;
         };
-    }, [source, defaultSize.width, defaultSize.height, onError, onLoad]);
+    }, [source, onError, onLoad]);
 
     if (state.status === 'loading') {
         return (
-            <View style={[styles.container, style]}>
-                {loadingComponent}
+            <View style={[styles.container, style, { width: scale?.targetWidth ?? scale?.targetHeight, height: scale?.targetHeight ?? scale?.targetWidth }]}>
+                {loadingComponent ?? null}
             </View>
         );
     }
@@ -133,18 +141,21 @@ export default function ExpoPixelPerfectView({
         ) : null;
     }
 
-    const targetScale = calculateScale(scale, {
+    if (state.width === null || state.height === null) {
+        return (
+            <View style={[styles.container, style, { width: scale?.targetWidth ?? scale?.targetHeight, height: scale?.targetHeight ?? scale?.targetWidth }]}>
+                {loadingComponent ?? null}
+            </View>
+        )
+    }
+
+    const targetScale = Math.max(calculateScale(scale, {
         width: state.width,
         height: state.height
-    });
-
-    const imageSize = {
-        width: state.width * targetScale,
-        height: state.height * targetScale
-    };
+    }), 1);
 
     const combinedStyle = StyleSheet.compose(
-        imageSize,
+        { width: state.width * targetScale, height: state.height * targetScale },
         style
     );
 

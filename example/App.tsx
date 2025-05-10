@@ -11,7 +11,10 @@ export default function App() {
             />
             <PixelImage
                 source={require('./assets/chain.png')}
-                scale={12}
+                scale={{
+                    targetWidth: 192,
+                    targetHeight: 192,
+                }}
             />
         </View>
     );
