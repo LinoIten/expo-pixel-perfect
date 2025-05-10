@@ -10,13 +10,13 @@ import android.util.Log
 import android.graphics.Bitmap.createScaledBitmap
 import android.view.ViewGroup.LayoutParams
 import android.widget.FrameLayout
-
 class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
     private val TAG = "PixelPerfect"
     private val imageView: ImageView
     private var scale: Int = 1
     private var pendingPath: String? = null
-    private var currentBitmap: Bitmap? = null
+    private var originalBitmap: Bitmap? = null
+    private var scaledBitmap: Bitmap? = null
     
     init {
         imageView = ImageView(context).apply {
@@ -44,18 +44,19 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         Log.d(TAG, "Loading image from: $path with scale: $scale")
         
         try {
+            // Clean up previous bitmaps
+            cleanupBitmaps()
+            
             val cleanPath = path.replace("file://", "")
             val bitmap = BitmapFactory.decodeFile(cleanPath, BitmapFactory.Options().apply {
                 inScaled = false
             })
             
             if (bitmap != null) {
-                // Clear previous bitmap
-                currentBitmap?.recycle()
-                currentBitmap = null
+                originalBitmap = bitmap
                 
                 // Create scaled bitmap if necessary
-                val scaledBitmap = if (scale != 1) {
+                scaledBitmap = if (scale != 1) {
                     createScaledBitmap(
                         bitmap,
                         bitmap.width * scale,
@@ -66,13 +67,7 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
                     bitmap
                 }
                 
-                // Only recycle original if it's different from scaled
-                if (scaledBitmap != bitmap) {
-                    bitmap.recycle()
-                }
-                
-                // Store reference to current bitmap
-                currentBitmap = scaledBitmap
+                // Set the image
                 imageView.setImageBitmap(scaledBitmap)
             } else {
                 Log.e(TAG, "Failed to load image")
@@ -80,6 +75,22 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         } catch (e: Exception) {
             Log.e(TAG, "Error loading image: ${e.message}", e)
         }
+    }
+    
+    private fun cleanupBitmaps() {
+        // Clear the ImageView first
+        imageView.setImageBitmap(null)
+        
+        // Now recycle bitmaps
+        if (scaledBitmap != null && scaledBitmap != originalBitmap && !scaledBitmap!!.isRecycled) {
+            scaledBitmap!!.recycle()
+        }
+        scaledBitmap = null
+        
+        if (originalBitmap != null && !originalBitmap!!.isRecycled) {
+            originalBitmap!!.recycle()
+        }
+        originalBitmap = null
     }
     
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {
@@ -90,7 +101,6 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     // Clean up when view is destroyed
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        currentBitmap?.recycle()
-        currentBitmap = null
+        cleanupBitmaps()
     }
 }
