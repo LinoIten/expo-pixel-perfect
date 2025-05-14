@@ -10,6 +10,10 @@ public class ExpoPixelPerfectModule: Module {
             Prop("path") { (view: ExpoPixelPerfectView, value: String) in
                 view.loadImageFromPath(value)
             }
+
+            Prop("base64") { (view: ExpoPixelPerfectView, base64: String) in
+                view.loadImageFromBase64(base64)
+            }
             
             Prop("scale") { (view: ExpoPixelPerfectView, value: Int) in
                 view.scale = value

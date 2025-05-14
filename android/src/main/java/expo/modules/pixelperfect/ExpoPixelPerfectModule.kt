@@ -15,10 +15,15 @@ class ExpoPixelPerfectModule : Module() {
             Prop("path") { view: ExpoPixelPerfectView, path: String ->
                 view.loadImageFromPath(path)
             }
+                
+            Prop("base64") { view: ExpoPixelPerfectView, base64: String ->
+                view.loadImageFromBase64(base64)
+            }
             
             Prop("scale") { view: ExpoPixelPerfectView, scale: Int ->
                 view.setScale(scale)
             }
+            
         }
     }
 }

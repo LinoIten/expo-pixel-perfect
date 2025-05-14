@@ -10,6 +10,7 @@ import android.util.Log
 import android.graphics.Bitmap.createScaledBitmap
 import android.view.ViewGroup.LayoutParams
 import android.widget.FrameLayout
+import android.util.Base64
 
 class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
     private val TAG = "PixelPerfect"
@@ -34,9 +35,68 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         loadImage()
     }
     
+    fun loadImageFromBase64(base64Data: String) {
+        Log.d(TAG, "Loading image from base64, length: ${base64Data.length}")
+        
+        try {
+            // Remove data:image/png;base64, prefix if present
+            val pureBase64 = if (base64Data.contains(",")) {
+                base64Data.split(",")[1]
+            } else {
+                base64Data
+            }
+            
+            // Decode base64 to byte array
+            val decodedBytes = Base64.decode(pureBase64, Base64.DEFAULT)
+            
+            // Create bitmap from byte array
+            val bitmap = BitmapFactory.decodeByteArray(
+                decodedBytes, 0, decodedBytes.size,
+                BitmapFactory.Options().apply {
+                    inScaled = false
+                }
+            )
+            
+            if (bitmap != null) {
+                // Store the original bitmap for scaling
+                currentBitmap = bitmap
+                
+                // Apply scaling
+                applyScaling(bitmap)
+            } else {
+                Log.e(TAG, "Failed to decode base64 to bitmap")
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error loading image from base64: ${e.message}", e)
+        }
+    }
+    
     fun setScale(newScale: Int) {
         scale = newScale
-        loadImage()
+        // Re-apply scaling if we have a bitmap
+        currentBitmap?.let { applyScaling(it) }
+    }
+    
+    private fun applyScaling(bitmap: Bitmap) {
+        // Create scaled bitmap if necessary
+        val displayBitmap = if (scale != 1) {
+            createScaledBitmap(
+                bitmap,
+                bitmap.width * scale,
+                bitmap.height * scale,
+                false  // nearest neighbor
+            )
+        } else {
+            bitmap
+        }
+        
+        // Set the image
+        imageView.setImageBitmap(displayBitmap)
+        
+        // Only recycle if we created a new bitmap and it's not our current bitmap
+        if (displayBitmap != bitmap && displayBitmap != currentBitmap) {
+            bitmap.recycle()
+        }
     }
     
     private fun loadImage() {
@@ -50,28 +110,11 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             })
             
             if (bitmap != null) {
-                // Create scaled bitmap if necessary
-                val displayBitmap = if (scale != 1) {
-                    createScaledBitmap(
-                        bitmap,
-                        bitmap.width * scale,
-                        bitmap.height * scale,
-                        false  // nearest neighbor
-                    )
-                } else {
-                    bitmap
-                }
+                // Store the original bitmap for scaling
+                currentBitmap = bitmap
                 
-                // Keep reference to current bitmap (for potential cleanup later)
-                currentBitmap = displayBitmap
-                
-                // Set the image
-                imageView.setImageBitmap(displayBitmap)
-                
-                // Only recycle if we created a new bitmap
-                if (displayBitmap != bitmap) {
-                    bitmap.recycle()
-                }
+                // Apply scaling
+                applyScaling(bitmap)
             } else {
                 Log.e(TAG, "Failed to load image")
             }
