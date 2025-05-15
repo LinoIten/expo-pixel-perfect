@@ -18,9 +18,12 @@ public class ExpoPixelPerfectModule: Module {
                 view.scale = value
             }
             
-            // Add iOS-specific render mode prop
             Prop("ios_renderMode") { (view: ExpoPixelPerfectView, mode: String) in
                 view.setRenderMode(mode)
+            }
+            
+            Prop("scaleMode") { (view: ExpoPixelPerfectView, mode: String) in
+                view.setScaleMode(mode)
             }
         }
     }

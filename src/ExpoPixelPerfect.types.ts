@@ -104,6 +104,17 @@ export type ExpoPixelPerfectViewProps = {
      * }}
      */
     source: Source;
+
+    
+    /**
+     * Controls how scaling is applied to the image, especially for non-integer scales.
+     * 
+     * - "nearest": Simple nearest-neighbor scaling (best for integer scales like 2x, 3x)
+     * - "fractional-optimized": Advanced algorithm for non-integer scales (looks sharper but uses more resources)
+     * 
+     * @default "nearest"
+     */
+    scaleMode?: "nearest" | "fractional-optimized";
     
     /**
      * Style applied to the view container

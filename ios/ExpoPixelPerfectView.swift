@@ -5,7 +5,8 @@ import CoreImage
 class ExpoPixelPerfectView: ExpoView {
     private var imageView: UIImageView
     private var originalImage: UIImage?
-    private var renderMode: String = "hardware"  // Default to hardware for performance
+    private var renderMode: String = "hardware"
+    private var scaleMode: String = "nearest"  
    
     var scale: Int = 1 {
         didSet {
@@ -37,6 +38,16 @@ class ExpoPixelPerfectView: ExpoView {
             scaleImage(image)
         }
     }
+
+    func setScaleMode(_ mode: String) {
+        scaleMode = mode
+        
+        // Re-scale the image if we have one
+        if let image = originalImage {
+            scaleImage(image)
+        }
+    }
+    
     
     private func applyRenderMode() {
         // Always use nearest neighbor at the layer level for sharp scaling
@@ -93,13 +104,28 @@ class ExpoPixelPerfectView: ExpoView {
             height: image.size.height * CGFloat(scale)
         )
         
-        // Choose scaling method based on renderMode
-        if renderMode == "software" {
-            // Use CoreGraphics for software-based rendering (more precise for pixel art)
-            scaleWithCoreGraphics(image, to: targetSize)
+        // Check if scale is integer or fractional
+        let intScale = Int(scale)
+        let isIntegerScale = CGFloat(intScale) == CGFloat(scale)
+        
+        // Choose scaling method based on scale mode and scale type
+        if (isIntegerScale || scaleMode == "nearest") {
+            // For integer scales or nearest neighbor mode, use standard nearest neighbor scaling
+            if renderMode == "software" {
+                scaleWithCoreGraphics(image, to: targetSize)
+            } else {
+                scaleWithCoreImage(image, to: targetSize)
+            }
+        } else if scaleMode == "fractional-optimized" {
+            // For fractional scales with optimized mode, use the multi-step process
+            scaleWithFractionalOptimized(image, to: targetSize)
         } else {
-            // Use Core Image for hardware-accelerated GPU rendering (faster)
-            scaleWithCoreImage(image, to: targetSize)
+            // Fallback to standard scaling
+            if renderMode == "software" {
+                scaleWithCoreGraphics(image, to: targetSize)
+            } else {
+                scaleWithCoreImage(image, to: targetSize)
+            }
         }
     }
     
@@ -121,6 +147,53 @@ class ExpoPixelPerfectView: ExpoView {
             } else {
                 NSLog("Failed to create scaled image")
             }
+        }
+    }
+
+
+    private func scaleWithFractionalOptimized(_ image: UIImage, to targetSize: CGSize) {
+        // For fractional scaling, use a multi-step process
+        
+        // 1. Scale to a much larger size first using nearest neighbor
+        let largeSize = CGSize(
+            width: targetSize.width * 6,
+            height: targetSize.height * 6
+        )
+        
+        // Create the large upscaled image with nearest neighbor
+        UIGraphicsBeginImageContextWithOptions(largeSize, false, 0)
+        defer { UIGraphicsEndImageContext() }
+        
+        if let context = UIGraphicsGetCurrentContext() {
+            context.interpolationQuality = .none
+            context.setShouldAntialias(false)
+            
+            image.draw(in: CGRect(origin: .zero, size: largeSize))
+            
+            if let largeImage = UIGraphicsGetImageFromCurrentImageContext() {
+                // Now scale back down to the target size with high quality
+                UIGraphicsBeginImageContextWithOptions(targetSize, false, 0)
+                defer { UIGraphicsEndImageContext() }
+                
+                if let downscaleContext = UIGraphicsGetCurrentContext() {
+                    // Use high quality downsampling
+                    downscaleContext.interpolationQuality = .high
+                    
+                    largeImage.draw(in: CGRect(origin: .zero, size: targetSize))
+                    
+                    if let finalImage = UIGraphicsGetImageFromCurrentImageContext() {
+                        imageView.image = finalImage
+                        return
+                    }
+                }
+            }
+        }
+        
+        // Fallback to standard scaling if the multi-step process fails
+        if renderMode == "software" {
+            scaleWithCoreGraphics(image, to: targetSize)
+        } else {
+            scaleWithCoreImage(image, to: targetSize)
         }
     }
     

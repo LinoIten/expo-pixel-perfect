@@ -24,9 +24,14 @@ class ExpoPixelPerfectModule : Module() {
                 view.setScale(scale)
             }
             
-            // Add the new renderMode prop
+            // Render mode prop
             Prop("android_renderMode") { view: ExpoPixelPerfectView, mode: String ->
                 view.setRenderMode(mode)
+            }
+            
+            // Add scale mode prop
+            Prop("scaleMode") { view: ExpoPixelPerfectView, mode: String ->
+                view.setScaleMode(mode)
             }
         }
     }

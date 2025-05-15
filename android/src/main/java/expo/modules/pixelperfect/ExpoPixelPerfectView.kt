@@ -20,7 +20,8 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     private var scale: Int = 1
     private var currentPath: String? = null
     private var currentBitmap: Bitmap? = null
-    private var renderMode: String = "hardware" // Default to hardware for performance
+    private var renderMode: String = "hardware"
+    private var scaleMode: String = "nearest"
     
     init {
         imageView = ImageView(context).apply {
@@ -35,6 +36,12 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         
         // Set initial render mode
         applyRenderMode()
+    }
+    
+    fun setScaleMode(mode: String) {
+        scaleMode = mode
+        // Re-apply scaling if we have a bitmap
+        currentBitmap?.let { applyScaling(it) }
     }
     
     fun setRenderMode(mode: String) {
@@ -59,8 +66,7 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     }
     
     fun loadImageFromBase64(base64Data: String) {
-        Log.d(TAG, "Loading image from base64, length: ${base64Data.length}")
-        
+
         try {
             // Remove data:image/png;base64, prefix if present
             val pureBase64 = if (base64Data.contains(",")) {
@@ -101,15 +107,37 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     }
 
     private fun applyScaling(bitmap: Bitmap) {
-        // Create scaled bitmap if necessary
+        // Determine if we have an integer scale
+        val intScale = scale.toInt()
+        val isIntegerScale = intScale.toFloat() == scale.toFloat()
+        
+        // Choose scaling method based on scaleMode and whether we have an integer scale
         val displayBitmap = if (scale != 1) {
-            // Use createScaledBitmap with nearest neighbor
-            createScaledBitmap(
-                bitmap,
-                bitmap.width * scale,
-                bitmap.height * scale,
-                false  // false = nearest neighbor (no filtering)
-            )
+            when {
+                // For integer scales or when using nearest neighbor mode, use simple scaling
+                isIntegerScale || scaleMode == "nearest" -> {
+                    createScaledBitmap(
+                        bitmap,
+                        bitmap.width * scale,
+                        bitmap.height * scale,
+                        false // nearest neighbor
+                    )
+                }
+                // For fractional scales with optimized mode
+                scaleMode == "fractional-optimized" -> {
+                    // Multi-step scaling for fractional scales
+                    scaleWithFractionalOptimized(bitmap, scale)
+                }
+                // Fallback to simple scaling
+                else -> {
+                    createScaledBitmap(
+                        bitmap,
+                        bitmap.width * scale,
+                        bitmap.height * scale,
+                        false // nearest neighbor
+                    )
+                }
+            }
         } else {
             bitmap
         }
@@ -117,16 +145,63 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         // Set the image
         imageView.setImageBitmap(displayBitmap)
         
-        // Only recycle if we created a new bitmap and it's not our current bitmap
+        // Clean up if needed
         if (displayBitmap != bitmap && displayBitmap != currentBitmap) {
             bitmap.recycle()
         }
     }
 
+    private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap {
+        // For fractional scaling, use a multi-step process
+        try {
+            // 1. Scale to a much larger size first (6x the target)
+            val tempWidth = (bitmap.width * scale * 6).toInt()
+            val tempHeight = (bitmap.height * scale * 6).toInt()
+            
+            val config = bitmap.config ?: Bitmap.Config.ARGB_8888
+            
+            val largeBitmap = createScaledBitmap(
+                bitmap,
+                tempWidth,
+                tempHeight,
+                false // nearest neighbor
+            )
+            
+            // 2. Then scale back down to the exact target size
+            val finalBitmap = Bitmap.createBitmap(
+                (bitmap.width * scale).toInt(),
+                (bitmap.height * scale).toInt(),
+                config
+            )
+            
+            val canvas = Canvas(finalBitmap)
+            val paint = Paint().apply {
+                isFilterBitmap = true // Enable filtering for downscaling
+                isDither = false      // Disable dithering
+                isAntiAlias = false   // Disable anti-aliasing
+            }
+            
+            canvas.drawBitmap(largeBitmap, null, 
+                Rect(0, 0, finalBitmap.width, finalBitmap.height), paint)
+            
+            // Clean up the large temporary bitmap
+            largeBitmap.recycle()
+            
+            return finalBitmap
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in fractional scaling: ${e.message}", e)
+            // Fallback to standard scaling
+            return createScaledBitmap(
+                bitmap,
+                (bitmap.width * scale).toInt(),
+                (bitmap.height * scale).toInt(),
+                false
+            )
+        }
+    }
+
     private fun loadImage() {
         val path = currentPath ?: return
-        Log.d(TAG, "Loading image from: $path with scale: $scale")
-        
         try {
             val cleanPath = path.replace("file://", "")
             val bitmap = BitmapFactory.decodeFile(cleanPath, BitmapFactory.Options().apply {
