@@ -1,9 +1,11 @@
 import ExpoModulesCore
 import UIKit
+import CoreImage
 
 class ExpoPixelPerfectView: ExpoView {
     private var imageView: UIImageView
     private var originalImage: UIImage?
+    private var renderMode: String = "hardware"  // Default to hardware for performance
    
     var scale: Int = 1 {
         didSet {
@@ -21,6 +23,23 @@ class ExpoPixelPerfectView: ExpoView {
        
         // Make sure image view doesn't do any of its own scaling
         imageView.contentMode = .scaleToFill
+        
+        // Apply initial render mode settings
+        applyRenderMode()
+    }
+    
+    func setRenderMode(_ mode: String) {
+        renderMode = mode
+        applyRenderMode()
+        
+        // Re-scale the image if we have one
+        if let image = originalImage {
+            scaleImage(image)
+        }
+    }
+    
+    private func applyRenderMode() {
+        // Always use nearest neighbor at the layer level for sharp scaling
         imageView.layer.magnificationFilter = .nearest
         imageView.layer.minificationFilter = .nearest
     }
@@ -39,10 +58,10 @@ class ExpoPixelPerfectView: ExpoView {
             NSLog("Failed to load image")
         }
     }
-    
+   
     func loadImageFromBase64(_ base64Data: String) {
         NSLog("Loading image from base64, length: \(base64Data.count)")
-        
+       
         // Extract base64 data (remove prefix if present)
         let pureBase64: String
         if base64Data.contains(",") {
@@ -50,19 +69,19 @@ class ExpoPixelPerfectView: ExpoView {
         } else {
             pureBase64 = base64Data
         }
-        
+       
         // Convert base64 to Data
         guard let imageData = Data(base64Encoded: pureBase64) else {
             NSLog("Failed to decode base64 data")
             return
         }
-        
+       
         // Create UIImage from data
         guard let image = UIImage(data: imageData) else {
             NSLog("Failed to create image from data")
             return
         }
-        
+       
         // Store and scale the image
         originalImage = image
         scaleImage(image)
@@ -73,8 +92,20 @@ class ExpoPixelPerfectView: ExpoView {
             width: image.size.width * CGFloat(scale),
             height: image.size.height * CGFloat(scale)
         )
-       
-        UIGraphicsBeginImageContextWithOptions(targetSize, false, 1.0)
+        
+        // Choose scaling method based on renderMode
+        if renderMode == "software" {
+            // Use CoreGraphics for software-based rendering (more precise for pixel art)
+            scaleWithCoreGraphics(image, to: targetSize)
+        } else {
+            // Use Core Image for hardware-accelerated GPU rendering (faster)
+            scaleWithCoreImage(image, to: targetSize)
+        }
+    }
+    
+    private func scaleWithCoreGraphics(_ image: UIImage, to size: CGSize) {
+        // Software rendering implementation (CPU-based)
+        UIGraphicsBeginImageContextWithOptions(size, false, 1.0)
         defer { UIGraphicsEndImageContext() }
        
         if let context = UIGraphicsGetCurrentContext() {
@@ -83,13 +114,45 @@ class ExpoPixelPerfectView: ExpoView {
             context.setShouldAntialias(false)
             context.setAllowsAntialiasing(false)
            
-            image.draw(in: CGRect(origin: .zero, size: targetSize))
+            image.draw(in: CGRect(origin: .zero, size: size))
            
             if let scaledImage = UIGraphicsGetImageFromCurrentImageContext() {
                 imageView.image = scaledImage
             } else {
                 NSLog("Failed to create scaled image")
             }
+        }
+    }
+    
+    private func scaleWithCoreImage(_ image: UIImage, to size: CGSize) {
+        // Hardware rendering implementation (GPU-based)
+        guard let cgImage = image.cgImage else {
+            NSLog("Failed to get CGImage")
+            // Fall back to CoreGraphics
+            scaleWithCoreGraphics(image, to: size)
+            return
+        }
+        
+        let ciImage = CIImage(cgImage: cgImage)
+        let scale = CGAffineTransform(scaleX: size.width / image.size.width, 
+                                      y: size.height / image.size.height)
+        
+        // Apply nearest-neighbor-like sampling
+        let scaledImage = ciImage.transformed(by: scale, highQualityDownsample: false)
+        
+        // Create a CIContext with hardware acceleration
+        let context = CIContext(options: [
+            .useSoftwareRenderer: false,  // Force hardware GPU rendering
+            .cacheIntermediates: true,    // Cache for better performance
+            .priorityRequestLow: false    // Use high priority for rendering
+        ])
+        
+        if let outputCGImage = context.createCGImage(scaledImage, from: scaledImage.extent) {
+            imageView.image = UIImage(cgImage: outputCGImage)
+        } else {
+            NSLog("Failed to create scaled image with Core Image")
+            // Fall back to CoreGraphics if Core Image fails
+            scaleWithCoreGraphics(image, to: size)
         }
     }
 }

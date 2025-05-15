@@ -1,6 +1,6 @@
 {
   "name": "expo-pixel-perfect",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "Nearest-Neighbor scaling for React Native and Expo",
   "main": "build/index.js",
   "types": "build/index.d.ts",
@@ -20,7 +20,8 @@
     "expo",
     "pixel-art",
     "image-scaling",
-    "nearest-neighbor"
+    "nearest-neighbor",
+    "game-assets"
   ],
   "repository": {
     "type": "git",

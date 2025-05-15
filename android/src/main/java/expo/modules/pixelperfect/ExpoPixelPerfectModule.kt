@@ -1,9 +1,9 @@
-
 package expo.modules.pixelperfect
 
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import android.util.Log
+import android.view.View
 
 class ExpoPixelPerfectModule : Module() {
     private val TAG = "PixelPerfect"
@@ -24,6 +24,10 @@ class ExpoPixelPerfectModule : Module() {
                 view.setScale(scale)
             }
             
+            // Add the new renderMode prop
+            Prop("android_renderMode") { view: ExpoPixelPerfectView, mode: String ->
+                view.setRenderMode(mode)
+            }
         }
     }
 }

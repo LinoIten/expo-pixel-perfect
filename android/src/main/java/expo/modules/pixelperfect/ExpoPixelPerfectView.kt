@@ -3,6 +3,8 @@ package expo.modules.pixelperfect
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Paint
+import android.view.View
 import android.widget.ImageView
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
@@ -18,6 +20,7 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     private var scale: Int = 1
     private var currentPath: String? = null
     private var currentBitmap: Bitmap? = null
+    private var renderMode: String = "hardware" // Default to hardware for performance
     
     init {
         imageView = ImageView(context).apply {
@@ -26,8 +29,28 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
             )
+            isDrawingCacheEnabled = true
         }
         addView(imageView)
+        
+        // Set initial render mode
+        applyRenderMode()
+    }
+    
+    fun setRenderMode(mode: String) {
+        renderMode = mode
+        applyRenderMode()
+        
+        // Re-apply scaling with new render mode
+        currentBitmap?.let { applyScaling(it) }
+    }
+    
+    private fun applyRenderMode() {
+        val isSoftware = renderMode == "software"
+        imageView.setLayerType(
+            if (isSoftware) View.LAYER_TYPE_SOFTWARE else View.LAYER_TYPE_HARDWARE,
+            null
+        )
     }
     
     fun loadImageFromPath(path: String) {
@@ -76,15 +99,16 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         // Re-apply scaling if we have a bitmap
         currentBitmap?.let { applyScaling(it) }
     }
-    
+
     private fun applyScaling(bitmap: Bitmap) {
         // Create scaled bitmap if necessary
         val displayBitmap = if (scale != 1) {
+            // Use createScaledBitmap with nearest neighbor
             createScaledBitmap(
                 bitmap,
                 bitmap.width * scale,
                 bitmap.height * scale,
-                false  // nearest neighbor
+                false  // false = nearest neighbor (no filtering)
             )
         } else {
             bitmap
@@ -98,7 +122,7 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             bitmap.recycle()
         }
     }
-    
+
     private fun loadImage() {
         val path = currentPath ?: return
         Log.d(TAG, "Loading image from: $path with scale: $scale")

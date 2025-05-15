@@ -8,7 +8,8 @@ Perfect pixel-art scaling for your Expo apps. No blur, no artifacts - just crisp
 ## ✨ Features
 
 - Crisp nearest-neighbor scaling (no blurry pixels!)
-- Works with local and remote images
+- Works with local, remote, and base64 images
+- Platform-specific rendering modes (software/hardware) for quality vs performance
 - Native performance
 - Loading states with customizable components
 - Error handling with fallback options
@@ -64,6 +65,10 @@ export default function Game() {
             // Scale to specific width
             scale={{ targetWidth: 64 }}
             
+            // Platform-specific rendering modes
+            android_renderMode="software"  // Higher quality on Android
+            ios_renderMode="software"      // Higher quality on iOS
+            
             // Custom loading component
             loadingComponent={<CustomLoader />}
             
@@ -74,11 +79,30 @@ export default function Game() {
             // Load callback
             onLoad={() => console.log('Sprite loaded successfully')}
             
-            // Custom default size
-            defaultSize={{ width: 32, height: 32 }}
-            
             // Standard React Native styles
             style={styles.sprite}
+        />
+    );
+}
+```
+
+### Using Base64 Images
+
+```tsx
+import ExpoPixelPerfectView from 'expo-pixel-perfect';
+
+export default function Game() {
+    // Base64 encoded pixel art
+    const pixelArtBase64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...';
+    
+    return (
+        <ExpoPixelPerfectView
+            source={{
+                base64: pixelArtBase64,
+                width: 16,  // Original width is required
+                height: 16  // Original height is required
+            }}
+            scale={3}
         />
     );
 }
@@ -88,9 +112,9 @@ export default function Game() {
 
 ### Required Props
 
-| Prop     | Type                      | Description                     |
-|----------|---------------------------|---------------------------------|
-| source   | number \| { uri: string } | Local or remote image source    |
+| Prop     | Type                                      | Description                     |
+|----------|-------------------------------------------|---------------------------------|
+| source   | number \| { uri: string } \| { base64: string, width: number, height: number } | Image source (local, remote, or base64)    |
 
 ### Optional Props
 
@@ -98,11 +122,38 @@ export default function Game() {
 |------------------|------------------------------------------------|-------------------|-------------------------------------------|
 | scale            | number \| { targetWidth: number } \| { targetHeight: number } | 1 | Scaling factor or target dimensions |
 | style            | ViewStyle                                      | undefined         | Standard React Native view styles         |
-| loadingComponent | ReactNode                                      | ActivityIndicator | Component shown during loading            |
+| loadingComponent | ReactNode                                      | null              | Component shown during loading            |
 | fallback         | ReactNode                                      | null              | Component shown on error                  |
 | onError          | (error: Error) => void                         | undefined         | Error callback                           |
 | onLoad           | () => void                                     | undefined         | Success callback                         |
-| defaultSize      | { width: number; height: number }              | { width: 16, height: 16 } | Default dimensions if not detected |
+| android_renderMode | "software" \| "hardware"                      | "hardware"        | Android-specific rendering mode          |
+| ios_renderMode   | "software" \| "hardware"                       | "hardware"        | iOS-specific rendering mode              |
+
+## 🖥️ Render Modes
+
+This module provides platform-specific rendering modes to balance between visual quality and performance:
+
+### Android Render Modes
+
+- **software**: Uses CPU-based rendering (View.LAYER_TYPE_SOFTWARE) for highest quality pixel-perfect rendering. Best for static UI elements or when visual quality is critical.
+- **hardware**: Uses GPU-accelerated rendering (View.LAYER_TYPE_HARDWARE) for better performance. May have slightly less precise scaling but offers better battery life and performance.
+
+### iOS Render Modes
+
+- **software**: Uses CoreGraphics (CPU-based) rendering with precise nearest-neighbor scaling. Best for static UI elements or when visual quality is critical.
+- **hardware**: Uses Core Image (GPU-accelerated) rendering for better performance. May have slightly less precise scaling but offers better battery life and performance.
+
+```tsx
+// Example of platform-specific optimization
+<ExpoPixelPerfectView 
+    source={require('./assets/character.png')} 
+    scale={4}
+    // Use software rendering on Android for best quality
+    android_renderMode="software"
+    // Use hardware acceleration on iOS for better performance
+    ios_renderMode="hardware"
+/>
+```
 
 ## 🎨 Tips
 
@@ -110,9 +161,10 @@ export default function Game() {
 - Use PNG format for transparency support
 - For dynamic scaling, use targetWidth/targetHeight instead of fixed scale
 - Provide fallback components for better user experience
-- Set appropriate defaultSize for your assets
 - Handle loading and error states for smoother UX
-- Use TypeScript for better type safety
+- Use "software" rendering mode for static UI elements for best quality
+- Use "hardware" rendering mode for animated elements for better performance
+- When using base64 images, always specify the original width and height
 
 ## 🤔 Common Issues
 
@@ -124,10 +176,26 @@ scale={4}
 scale={{ targetWidth: 64 }}
 ```
 
+If still blurry, try using the "software" rendering mode:
+```tsx
+android_renderMode="software"
+ios_renderMode="software"
+```
+
 ### Image not loading
 Check that your asset path is correct and the image exists. The onError callback can help debug:
 ```tsx
 onError={(error) => console.error('Loading failed:', error)}
+```
+
+### Base64 image has wrong dimensions
+When using base64 images, you must specify the original width and height:
+```tsx
+source={{
+    base64: myBase64String,
+    width: 16,   // Important! Must be exact
+    height: 16   // Important! Must be exact
+}}
 ```
 
 ---
