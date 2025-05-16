@@ -3,13 +3,15 @@ package expo.modules.pixelperfect
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Canvas
 import android.graphics.Paint
-import android.view.View
+import android.graphics.Rect
 import android.widget.ImageView
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
 import android.util.Log
 import android.graphics.Bitmap.createScaledBitmap
+import android.view.View
 import android.view.ViewGroup.LayoutParams
 import android.widget.FrameLayout
 import android.util.Base64
@@ -161,30 +163,27 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap {
         // For fractional scaling, use a multi-step process
         try {
-            Log.d(TAG, "Using fractional optimized scaling method")
+            // 1. Scale to a much larger size first (6x the target)
+            val targetWidth = bitmap.width * scale
+            val targetHeight = bitmap.height * scale
             
-            // Target dimensions
-            val targetWidth = (bitmap.width * scale).toInt()
-            val targetHeight = (bitmap.height * scale).toInt()
-            
-            // 1. Scale to a much larger size first (6x the target, just like in iOS)
-            val largeWidth = targetWidth * 6
-            val largeHeight = targetHeight * 6
+            val tempWidth = targetWidth * 6
+            val tempHeight = targetHeight * 6
             
             val config = bitmap.config ?: Bitmap.Config.ARGB_8888
             
             // Create the large upscaled image with nearest neighbor
             val largeBitmap = createScaledBitmap(
                 bitmap,
-                largeWidth,
-                largeHeight,
+                tempWidth.toInt(),
+                tempHeight.toInt(),
                 false // nearest neighbor
             )
             
             // 2. Then scale back down to the exact target size
             val finalBitmap = Bitmap.createBitmap(
-                targetWidth,
-                targetHeight,
+                targetWidth.toInt(),
+                targetHeight.toInt(),
                 config
             )
             

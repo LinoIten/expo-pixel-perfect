@@ -1,8 +1,8 @@
-import * as React from "react";
 import { requireNativeView } from "expo";
 import { Asset } from "expo-asset";
-import { StyleProp, StyleSheet, ViewStyle, View, Platform } from "react-native";
+import { StyleProp, StyleSheet, ViewStyle, View, Platform, ImageSourcePropType, requireNativeComponent } from "react-native";
 import { ExpoPixelPerfectViewProps, Scale } from "./ExpoPixelPerfect.types";
+import { useEffect, useState } from "react";
 
 
 const NativeView: React.ComponentType<{
@@ -58,7 +58,7 @@ export default function ExpoPixelPerfectView({
     android_renderMode,
     ios_renderMode,
 }: ExpoPixelPerfectViewProps) {
-    const [state, setState] = React.useState<{
+    const [state, setState] = useState<{
         status: "loading" | "loaded" | "error";
         localUri?: string | null;
         base64Data?: string;
@@ -71,7 +71,7 @@ export default function ExpoPixelPerfectView({
         height: null,
     });
 
-    React.useEffect(() => {
+    useEffect(() => {
         let mounted = true;
 
         async function loadAsset() {
