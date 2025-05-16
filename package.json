@@ -34,18 +34,18 @@
   "license": "MIT",
   "homepage": "https://github.com/LinoIten/expo-pixel-perfect#readme",
   "devDependencies": {
-    "@types/react": "~18.3.12",
-    "expo": "~52.0.42",
-    "expo-module-scripts": "^4.0.2",
-    "react-native": "0.76.9"
+    "@types/react": "~19.0.0",
+    "expo": "~53.0.0",
+    "expo-module-scripts": "^4.1.6",
+    "react-native": "0.79.1"
   },
   "peerDependencies": {
     "expo": "*",
     "react": "*",
     "react-native": "*",
-    "expo-asset": "^11.0.1"
+    "expo-asset": "^11.1.5"
   },
   "dependencies": {
-    "expo-asset": "~11.0.5"
+    "expo-asset": "^11.1.5"
   }
 }

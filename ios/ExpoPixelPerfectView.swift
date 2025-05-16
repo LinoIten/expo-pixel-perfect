@@ -97,35 +97,25 @@ class ExpoPixelPerfectView: ExpoView {
         originalImage = image
         scaleImage(image)
     }
-   
+
     private func scaleImage(_ image: UIImage) {
+        NSLog("Scaling image by factor: \(scale), renderMode: \(renderMode), scaleMode: \(scaleMode)")
+        
         let targetSize = CGSize(
             width: image.size.width * CGFloat(scale),
             height: image.size.height * CGFloat(scale)
         )
         
-        // Check if scale is integer or fractional
-        let intScale = Int(scale)
-        let isIntegerScale = CGFloat(intScale) == CGFloat(scale)
-        
-        // Choose scaling method based on scale mode and scale type
-        if (isIntegerScale || scaleMode == "nearest") {
-            // For integer scales or nearest neighbor mode, use standard nearest neighbor scaling
-            if renderMode == "software" {
-                scaleWithCoreGraphics(image, to: targetSize)
-            } else {
-                scaleWithCoreImage(image, to: targetSize)
-            }
-        } else if scaleMode == "fractional-optimized" {
-            // For fractional scales with optimized mode, use the multi-step process
+        // Choose the appropriate scaling method based on render mode and scale mode
+        if scaleMode == "fractional" {
+            // Use software-based rendering (CPU)
             scaleWithFractionalOptimized(image, to: targetSize)
+        } else if renderMode == "software" {
+            // For fractional scaling (non-integer values), use the optimized approach
+            scaleWithCoreGraphics(image, to: targetSize)
         } else {
-            // Fallback to standard scaling
-            if renderMode == "software" {
-                scaleWithCoreGraphics(image, to: targetSize)
-            } else {
-                scaleWithCoreImage(image, to: targetSize)
-            }
+            // For nearest-neighbor with hardware acceleration, use Core Image
+            scaleWithCoreImage(image, to: targetSize)
         }
     }
     
@@ -156,8 +146,8 @@ class ExpoPixelPerfectView: ExpoView {
         
         // 1. Scale to a much larger size first using nearest neighbor
         let largeSize = CGSize(
-            width: targetSize.width * 6,
-            height: targetSize.height * 6
+            width: targetSize.width * 3,
+            height: targetSize.height * 3
         )
         
         // Create the large upscaled image with nearest neighbor
@@ -196,7 +186,6 @@ class ExpoPixelPerfectView: ExpoView {
             scaleWithCoreImage(image, to: targetSize)
         }
     }
-    
     private func scaleWithCoreImage(_ image: UIImage, to size: CGSize) {
         // Hardware rendering implementation (GPU-based)
         guard let cgImage = image.cgImage else {
@@ -207,20 +196,57 @@ class ExpoPixelPerfectView: ExpoView {
         }
         
         let ciImage = CIImage(cgImage: cgImage)
-        let scale = CGAffineTransform(scaleX: size.width / image.size.width, 
-                                      y: size.height / image.size.height)
         
-        // Apply nearest-neighbor-like sampling
-        let scaledImage = ciImage.transformed(by: scale, highQualityDownsample: false)
+        // For nearest-neighbor in Core Image, we'll use the CIAffineClamp filter
+        // which respects the CIContext's sampling mode
+        guard let affineFilter = CIFilter(name: "CIAffineClamp") else {
+            NSLog("Failed to create affine clamp filter")
+            scaleWithCoreGraphics(image, to: size)
+            return
+        }
         
-        // Create a CIContext with hardware acceleration
-        let context = CIContext(options: [
-            .useSoftwareRenderer: false,  // Force hardware GPU rendering
-            .cacheIntermediates: true,    // Cache for better performance
-            .priorityRequestLow: false    // Use high priority for rendering
-        ])
+        // Create the transform
+        let transform = CGAffineTransform(
+            scaleX: size.width / image.size.width,
+            y: size.height / image.size.height
+        )
         
-        if let outputCGImage = context.createCGImage(scaledImage, from: scaledImage.extent) {
+        // Apply the filter
+        affineFilter.setValue(ciImage, forKey: kCIInputImageKey)
+        affineFilter.setValue(NSValue(cgAffineTransform: transform), forKey: "inputTransform")
+        
+        // Get output image
+        guard let outputCIImage = affineFilter.outputImage else {
+            NSLog("Failed to get output from affine filter")
+            scaleWithCoreGraphics(image, to: size)
+            return
+        }
+        
+        // Create a CIContext with the appropriate sampling mode
+        let options: [CIContextOption: Any]
+        if scaleMode == "nearest" {
+            options = [
+                .useSoftwareRenderer: false,          // Force hardware GPU rendering
+                .cacheIntermediates: true,            // Cache for better performance
+                .priorityRequestLow: false,           // Use high priority for rendering
+                .outputColorSpace: NSNull(),          // Use default color space
+                .workingColorSpace: NSNull(),         // Use default working color space
+                .outputPremultiplied: true,           // Premultiply alpha
+                .highQualityDownsample: false         // Disable high-quality downsampling
+            ]
+        } else {
+            options = [
+                .useSoftwareRenderer: false,          // Force hardware GPU rendering
+                .cacheIntermediates: true,            // Cache for better performance
+                .priorityRequestLow: false,           // Use high priority for rendering
+                .highQualityDownsample: true          // Enable high-quality downsampling
+            ]
+        }
+        
+        let context = CIContext(options: options)
+        
+        // Render the image with correct sampling mode
+        if let outputCGImage = context.createCGImage(outputCIImage, from: outputCIImage.extent) {
             imageView.image = UIImage(cgImage: outputCGImage)
         } else {
             NSLog("Failed to create scaled image with Core Image")

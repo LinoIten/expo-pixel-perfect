@@ -5,4 +5,4 @@ import { ExpoPixelPerfectModuleEvents } from './ExpoPixelPerfect.types';
 class ExpoPixelPerfectModule extends NativeModule<ExpoPixelPerfectModuleEvents> {
 }
 
-export default registerWebModule(ExpoPixelPerfectModule);
+export default registerWebModule(ExpoPixelPerfectModule, "ExpoPixelPerfect");
