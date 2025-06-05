@@ -1,6 +1,6 @@
 import { requireNativeView } from "expo";
 import { Asset } from "expo-asset";
-import { StyleProp, StyleSheet, ViewStyle, View, Platform, ImageSourcePropType, requireNativeComponent } from "react-native";
+import { StyleProp, StyleSheet, ViewStyle, View, Platform } from "react-native";
 import { ExpoPixelPerfectViewProps, Scale } from "./ExpoPixelPerfect.types";
 import { useEffect, useState } from "react";
 
