@@ -92,11 +92,8 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
 
     private fun applyScaling(bitmap: Bitmap) {
         if (bitmap.isRecycled) {
-            Log.w(TAG, "Source bitmap is recycled, skipping scaling")
             return
         }
-        
-        Log.d(TAG, "Scaling image by factor: $scale, renderMode: $renderMode, scaleMode: $scaleMode")
         
         val targetWidth = (bitmap.width * scale).toInt()
         val targetHeight = (bitmap.height * scale).toInt()
@@ -111,8 +108,10 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         displayBitmap?.let { 
             if (!it.isRecycled) {
                 imageView.setImageBitmap(it)
+            } else {
+                Log.w(TAG, "Display bitmap is recycled, not setting")
             }
-        }
+        } ?: Log.w(TAG, "Display bitmap is null")
     }
     
     private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap? {
@@ -182,14 +181,20 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        currentPath?.let { loadImage() }
+        
+        // Force reload the image when reattaching
+        if (currentPath != null) {
+            loadImage()
+        } else if (currentBitmap != null) {
+            // If we have a bitmap but no path (base64 case), reapply scaling
+            applyScaling(currentBitmap!!)
+        }
     }
     
-    // No manual cleanup needed - let GC handle it
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Just clear references, let GC do the work
-        currentBitmap = null
+        // Don't clear currentBitmap - we want to keep it for when we reattach
+        // Only clear the ImageView to free up immediate display memory
         imageView.setImageBitmap(null)
     }
 }
