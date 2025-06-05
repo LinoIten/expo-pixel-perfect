@@ -5,7 +5,6 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Rect
 import android.widget.ImageView
 import expo.modules.kotlin.AppContext
 import expo.modules.kotlin.views.ExpoView
@@ -22,7 +21,6 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     private var scale: Int = 1
     private var currentPath: String? = null
     private var currentBitmap: Bitmap? = null
-    private var currentDisplayBitmap: Bitmap? = null // Track the currently displayed bitmap
     private var renderMode: String = "hardware"
     private var scaleMode: String = "nearest"
     
@@ -33,25 +31,19 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
                 LayoutParams.MATCH_PARENT,
                 LayoutParams.MATCH_PARENT
             )
-            isDrawingCacheEnabled = true
         }
         addView(imageView)
-        
-        // Set initial render mode
         applyRenderMode()
     }
     
     fun setScaleMode(mode: String) {
         scaleMode = mode
-        // Re-apply scaling if we have a bitmap
         currentBitmap?.let { applyScaling(it) }
     }
     
     fun setRenderMode(mode: String) {
         renderMode = mode
         applyRenderMode()
-        
-        // Re-apply scaling with new render mode
         currentBitmap?.let { applyScaling(it) }
     }
     
@@ -70,32 +62,20 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     
     fun loadImageFromBase64(base64Data: String) {
         try {
-            // Remove data:image/png;base64, prefix if present
             val pureBase64 = if (base64Data.contains(",")) {
                 base64Data.split(",")[1]
             } else {
                 base64Data
             }
             
-            // Decode base64 to byte array
             val decodedBytes = Base64.decode(pureBase64, Base64.DEFAULT)
-            
-            // Create bitmap from byte array
             val bitmap = BitmapFactory.decodeByteArray(
                 decodedBytes, 0, decodedBytes.size,
-                BitmapFactory.Options().apply {
-                    inScaled = false
-                }
+                BitmapFactory.Options().apply { inScaled = false }
             )
             
             if (bitmap != null) {
-                // Clean up previous bitmaps before setting new ones
-                cleanupBitmaps()
-                
-                // Store the original bitmap for scaling
                 currentBitmap = bitmap
-                
-                // Apply scaling
                 applyScaling(bitmap)
             } else {
                 Log.e(TAG, "Failed to decode base64 to bitmap")
@@ -107,125 +87,71 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     
     fun setScale(newScale: Int) {
         scale = newScale
-        // Re-apply scaling if we have a bitmap
         currentBitmap?.let { applyScaling(it) }
     }
 
-    private fun cleanupBitmaps() {
-        // Only recycle bitmaps that are not being used by the ImageView
-        currentDisplayBitmap?.let { displayBitmap ->
-            if (displayBitmap != currentBitmap && !displayBitmap.isRecycled) {
-                displayBitmap.recycle()
-            }
-        }
-        currentDisplayBitmap = null
-    }
-
     private fun applyScaling(bitmap: Bitmap) {
+        if (bitmap.isRecycled) {
+            Log.w(TAG, "Source bitmap is recycled, skipping scaling")
+            return
+        }
+        
         Log.d(TAG, "Scaling image by factor: $scale, renderMode: $renderMode, scaleMode: $scaleMode")
         
         val targetWidth = (bitmap.width * scale).toInt()
         val targetHeight = (bitmap.height * scale).toInt()
         
-        // Clean up any existing display bitmap first
-        cleanupBitmaps()
-        
-        // Choose the appropriate scaling method based on render mode and scale mode
-        val displayBitmap = if (scale != 1) {
-            when {
-                // If scale mode is fractional, use the optimized approach
-                scaleMode == "fractional" -> {
-                    scaleWithFractionalOptimized(bitmap, scale)
-                }
-                // If render mode is software, use basic scaling with software rendering
-                renderMode == "software" -> {
-                    createScaledBitmap(
-                        bitmap,
-                        targetWidth,
-                        targetHeight,
-                        false // nearest neighbor
-                    )
-                }
-                // Otherwise use hardware-accelerated nearest-neighbor scaling
-                else -> {
-                    // Make sure we're using HARDWARE layer type for this case
-                    if (imageView.layerType != View.LAYER_TYPE_HARDWARE) {
-                        imageView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
-                    }
-                    
-                    createScaledBitmap(
-                        bitmap,
-                        targetWidth,
-                        targetHeight,
-                        false // nearest neighbor
-                    )
-                }
-            }
-        } else {
-            bitmap // Use original bitmap if scale is 1
+        val displayBitmap = when {
+            scale == 1 -> bitmap // No scaling needed
+            scaleMode == "fractional" -> scaleWithFractionalOptimized(bitmap, scale)
+            else -> createScaledBitmap(bitmap, targetWidth, targetHeight, false)
         }
         
-        // Store reference to the display bitmap
-        currentDisplayBitmap = displayBitmap
-        
-        // Set the image
-        imageView.setImageBitmap(displayBitmap)
+        // Simple null check and set - let GC handle cleanup
+        displayBitmap?.let { 
+            if (!it.isRecycled) {
+                imageView.setImageBitmap(it)
+            }
+        }
     }
     
-    private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap {
-        // For fractional scaling, use a multi-step process
-        try {
-            // 1. Scale to a much larger size first (6x the target)
+    private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap? {
+        if (bitmap.isRecycled) return null
+        
+        return try {
             val targetWidth = bitmap.width * scale
             val targetHeight = bitmap.height * scale
-            
             val tempWidth = targetWidth * 6
             val tempHeight = targetHeight * 6
-            
             val config = bitmap.config ?: Bitmap.Config.ARGB_8888
             
-            // Create the large upscaled image with nearest neighbor
             val largeBitmap = createScaledBitmap(
-                bitmap,
-                tempWidth.toInt(),
-                tempHeight.toInt(),
-                false // nearest neighbor
+                bitmap, tempWidth.toInt(), tempHeight.toInt(), false
             )
             
-            // 2. Then scale back down to the exact target size
             val finalBitmap = Bitmap.createBitmap(
-                targetWidth.toInt(),
-                targetHeight.toInt(),
-                config
+                targetWidth.toInt(), targetHeight.toInt(), config
             )
             
-            // Create canvas and paint for drawing
-            val canvas = android.graphics.Canvas(finalBitmap)
-            val paint = android.graphics.Paint().apply {
-                isFilterBitmap = true // Enable filtering for downscaling
-                isDither = false      // Disable dithering
-                isAntiAlias = false   // Disable anti-aliasing
+            val canvas = Canvas(finalBitmap)
+            val paint = Paint().apply {
+                isFilterBitmap = true
+                isDither = false
+                isAntiAlias = false
             }
             
-            // Draw the large bitmap down to the final size
-            canvas.drawBitmap(largeBitmap, null, 
-                android.graphics.Rect(0, 0, finalBitmap.width, finalBitmap.height), paint)
+            canvas.drawBitmap(
+                largeBitmap, null, 
+                android.graphics.Rect(0, 0, finalBitmap.width, finalBitmap.height), 
+                paint
+            )
             
-            // Clean up the large temporary bitmap
-            if (!largeBitmap.isRecycled) {
-                largeBitmap.recycle()
-            }
-            
-            return finalBitmap
+            // Let GC handle largeBitmap cleanup naturally
+            finalBitmap
         } catch (e: Exception) {
             Log.e(TAG, "Error in fractional scaling: ${e.message}", e)
             // Fallback to standard scaling
-            return createScaledBitmap(
-                bitmap,
-                (bitmap.width * scale).toInt(),
-                (bitmap.height * scale).toInt(),
-                false
-            )
+            createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), false)
         }
     }
 
@@ -233,18 +159,13 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         val path = currentPath ?: return
         try {
             val cleanPath = path.replace("file://", "")
-            val bitmap = BitmapFactory.decodeFile(cleanPath, BitmapFactory.Options().apply {
-                inScaled = false
-            })
+            val bitmap = BitmapFactory.decodeFile(
+                cleanPath, 
+                BitmapFactory.Options().apply { inScaled = false }
+            )
             
             if (bitmap != null) {
-                // Clean up previous bitmaps before setting new ones
-                cleanupBitmaps()
-                
-                // Store the original bitmap for scaling
                 currentBitmap = bitmap
-                
-                // Apply scaling
                 applyScaling(bitmap)
             } else {
                 Log.e(TAG, "Failed to load image")
@@ -261,18 +182,14 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        // Reload image when view is attached
-        if (currentPath != null) {
-            loadImage()
-        }
+        currentPath?.let { loadImage() }
     }
     
+    // No manual cleanup needed - let GC handle it
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Clean up bitmaps when view is detached
-        cleanupBitmaps()
-        
-        // Don't recycle the original bitmap here as it might be reused
-        // Let the garbage collector handle it when the view is truly destroyed
+        // Just clear references, let GC do the work
+        currentBitmap = null
+        imageView.setImageBitmap(null)
     }
 }
