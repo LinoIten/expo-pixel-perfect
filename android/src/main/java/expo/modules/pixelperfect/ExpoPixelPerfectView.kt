@@ -22,6 +22,7 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     private var scale: Int = 1
     private var currentPath: String? = null
     private var currentBitmap: Bitmap? = null
+    private var currentDisplayBitmap: Bitmap? = null // Track the currently displayed bitmap
     private var renderMode: String = "hardware"
     private var scaleMode: String = "nearest"
     
@@ -68,7 +69,6 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     }
     
     fun loadImageFromBase64(base64Data: String) {
-
         try {
             // Remove data:image/png;base64, prefix if present
             val pureBase64 = if (base64Data.contains(",")) {
@@ -89,6 +89,9 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             )
             
             if (bitmap != null) {
+                // Clean up previous bitmaps before setting new ones
+                cleanupBitmaps()
+                
                 // Store the original bitmap for scaling
                 currentBitmap = bitmap
                 
@@ -108,11 +111,24 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         currentBitmap?.let { applyScaling(it) }
     }
 
+    private fun cleanupBitmaps() {
+        // Only recycle bitmaps that are not being used by the ImageView
+        currentDisplayBitmap?.let { displayBitmap ->
+            if (displayBitmap != currentBitmap && !displayBitmap.isRecycled) {
+                displayBitmap.recycle()
+            }
+        }
+        currentDisplayBitmap = null
+    }
+
     private fun applyScaling(bitmap: Bitmap) {
         Log.d(TAG, "Scaling image by factor: $scale, renderMode: $renderMode, scaleMode: $scaleMode")
         
         val targetWidth = (bitmap.width * scale).toInt()
         val targetHeight = (bitmap.height * scale).toInt()
+        
+        // Clean up any existing display bitmap first
+        cleanupBitmaps()
         
         // Choose the appropriate scaling method based on render mode and scale mode
         val displayBitmap = if (scale != 1) {
@@ -146,18 +162,14 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
                 }
             }
         } else {
-            bitmap
+            bitmap // Use original bitmap if scale is 1
         }
+        
+        // Store reference to the display bitmap
+        currentDisplayBitmap = displayBitmap
         
         // Set the image
         imageView.setImageBitmap(displayBitmap)
-        
-        // Clean up if needed
-        if (displayBitmap != bitmap && displayBitmap != currentBitmap) {
-            if (!bitmap.isRecycled) {
-                bitmap.recycle()
-            }
-        }
     }
     
     private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap {
@@ -226,6 +238,9 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             })
             
             if (bitmap != null) {
+                // Clean up previous bitmaps before setting new ones
+                cleanupBitmaps()
+                
                 // Store the original bitmap for scaling
                 currentBitmap = bitmap
                 
@@ -254,7 +269,10 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
     
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Don't recycle bitmap here - it might cause issues
-        // Let the garbage collector handle it
+        // Clean up bitmaps when view is detached
+        cleanupBitmaps()
+        
+        // Don't recycle the original bitmap here as it might be reused
+        // Let the garbage collector handle it when the view is truly destroyed
     }
 }
