@@ -14,11 +14,12 @@ import android.view.View
 import android.view.ViewGroup.LayoutParams
 import android.widget.FrameLayout
 import android.util.Base64
+import kotlin.math.roundToInt
 
 class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(context, appContext) {
     private val TAG = "PixelPerfect"
     private val imageView: ImageView
-    private var scale: Int = 1
+    private var scale: Float = 1f // Changed to Float to support fractional values
     private var currentPath: String? = null
     private var currentBitmap: Bitmap? = null
     private var renderMode: String = "hardware"
@@ -85,8 +86,15 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         }
     }
     
-    fun setScale(newScale: Int) {
+    // Updated to accept Float values
+    fun setScale(newScale: Float) {
         scale = newScale
+        currentBitmap?.let { applyScaling(it) }
+    }
+    
+    // Backward compatibility for Int values
+    fun setScale(newScale: Int) {
+        scale = newScale.toFloat()
         currentBitmap?.let { applyScaling(it) }
     }
 
@@ -95,11 +103,11 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             return
         }
         
-        val targetWidth = (bitmap.width * scale).toInt()
-        val targetHeight = (bitmap.height * scale).toInt()
+        val targetWidth = (bitmap.width * scale).roundToInt()
+        val targetHeight = (bitmap.height * scale).roundToInt()
         
         val displayBitmap = when {
-            scale == 1 -> bitmap // No scaling needed
+            scale == 1f -> bitmap // No scaling needed
             scaleMode == "fractional" -> scaleWithFractionalOptimized(bitmap, scale)
             else -> createScaledBitmap(bitmap, targetWidth, targetHeight, false)
         }
@@ -114,43 +122,36 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
         } ?: Log.w(TAG, "Display bitmap is null")
     }
     
-    private fun scaleWithFractionalOptimized(bitmap: Bitmap, scale: Int): Bitmap? {
+    private fun scaleWithFractionalOptimized(bitmap: Bitmap, scaleValue: Float): Bitmap? {
         if (bitmap.isRecycled) return null
         
         return try {
-            val targetWidth = bitmap.width * scale
-            val targetHeight = bitmap.height * scale
-            val tempWidth = targetWidth * 6
-            val tempHeight = targetHeight * 6
+            val targetWidth = (bitmap.width * scaleValue).roundToInt()
+            val targetHeight = (bitmap.height * scaleValue).roundToInt()
             val config = bitmap.config ?: Bitmap.Config.ARGB_8888
             
-            val largeBitmap = createScaledBitmap(
-                bitmap, tempWidth.toInt(), tempHeight.toInt(), false
-            )
-            
-            val finalBitmap = Bitmap.createBitmap(
-                targetWidth.toInt(), targetHeight.toInt(), config
-            )
-            
+            // Create the final bitmap with exact target dimensions
+            val finalBitmap = Bitmap.createBitmap(targetWidth, targetHeight, config)
             val canvas = Canvas(finalBitmap)
+            
+            // Use nearest neighbor scaling for pixel-perfect results
             val paint = Paint().apply {
-                isFilterBitmap = true
-                isDither = false
-                isAntiAlias = false
+                isFilterBitmap = false  // Critical: disables bilinear filtering
+                isAntiAlias = false     // No antialiasing for sharp pixels
+                isDither = false        // No dithering
             }
             
-            canvas.drawBitmap(
-                largeBitmap, null, 
-                android.graphics.Rect(0, 0, finalBitmap.width, finalBitmap.height), 
-                paint
-            )
+            // Scale the canvas to the exact fractional scale
+            canvas.scale(scaleValue, scaleValue)
+            canvas.drawBitmap(bitmap, 0f, 0f, paint)
             
-            // Let GC handle largeBitmap cleanup naturally
             finalBitmap
         } catch (e: Exception) {
             Log.e(TAG, "Error in fractional scaling: ${e.message}", e)
-            // Fallback to standard scaling
-            createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), false)
+            // Fallback to standard scaling without filtering
+            val targetWidth = (bitmap.width * scaleValue).roundToInt()
+            val targetHeight = (bitmap.height * scaleValue).roundToInt()
+            createScaledBitmap(bitmap, targetWidth, targetHeight, false)
         }
     }
 
@@ -160,7 +161,11 @@ class ExpoPixelPerfectView(context: Context, appContext: AppContext) : ExpoView(
             val cleanPath = path.replace("file://", "")
             val bitmap = BitmapFactory.decodeFile(
                 cleanPath, 
-                BitmapFactory.Options().apply { inScaled = false }
+                BitmapFactory.Options().apply { 
+                    inScaled = false 
+                    inDither = false  // Prevent dithering during load
+                    inPreferredConfig = Bitmap.Config.ARGB_8888
+                }
             )
             
             if (bitmap != null) {

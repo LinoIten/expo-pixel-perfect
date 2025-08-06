@@ -1,5 +1,4 @@
 package expo.modules.pixelperfect
-
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import android.util.Log
@@ -20,8 +19,17 @@ class ExpoPixelPerfectModule : Module() {
                 view.loadImageFromBase64(base64)
             }
             
+            // Support multiple number types for scale
             Prop("scale") { view: ExpoPixelPerfectView, scale: Int ->
+                view.setScale(scale.toFloat())
+            }
+            
+            Prop("scale") { view: ExpoPixelPerfectView, scale: Float ->
                 view.setScale(scale)
+            }
+            
+            Prop("scale") { view: ExpoPixelPerfectView, scale: Double ->
+                view.setScale(scale.toFloat())
             }
             
             // Render mode prop

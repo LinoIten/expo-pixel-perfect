@@ -1,6 +1,6 @@
 {
   "name": "expo-pixel-perfect",
-  "version": "1.0.20",
+  "version": "1.0.21",
   "description": "Nearest-Neighbor scaling for React Native and Expo",
   "main": "build/index.js",
   "types": "build/index.d.ts",
